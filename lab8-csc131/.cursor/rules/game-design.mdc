@@ -1,0 +1,42 @@
+---
+description: Current design of the game (hero, monsters, loot, save format). Read before changing game logic.
+globs: ["app.py"]
+alwaysApply: false
+---
+
+# Current game design
+
+## Hero
+- Theme: World of Warcraft, Horde side. Title prints `=== FOR THE HORDE ===`.
+- Default hero is Thrall (press Enter at the name prompt).
+- Starts with HP 30, XP 0, Gold 0, weapon Doomhammer, attack_bonus 2.
+- `attack_bonus` is added to the d20 roll in `fight()`.
+- The armory/shop was removed on purpose. Weapons do not change during play.
+
+## Monsters (`MONSTERS`)
+Each has `taunt`, `ac`, `damage`, `xp`. A `loot` dict is added at startup.
+| Monster | AC | Damage | XP |
+|---|---|---|---|
+| Goblin | 8 | 4 | 20 |
+| Skeleton | 10 | 5 | 30 |
+| Orc | 13 | 7 | 50 |
+| Mimic | 11 | 6 | 40 |
+| Human Footman | 9 | 4 | 25 |
+| Night Elf Sentinel | 11 | 5 | 35 |
+| Dwarf Mountaineer | 12 | 6 | 45 |
+
+## Loot (`LOOT`, `assign_loot`, `roll_loot`)
+- Tiers follow WoW item quality: Poor, Common, Uncommon, Rare, Epic.
+- `assign_loot()` runs once in `main()`. It gives every monster one random item per tier.
+- `roll_loot()` runs after a win. Roll = d100 + (monster AC - 8). Highest tier whose `min_roll` is met wins. Under 31 drops nothing.
+- min_roll / gold value: Poor 31/1, Common 61/5, Uncommon 81/20, Rare 94/60, Epic 100/200.
+- Measured rates: Goblin about 30% nothing, 1% Epic. Orc about 25% nothing, 6% Epic.
+- To tune difficulty, only change the five `min_roll` numbers.
+
+## Save file (`saves/checkpoint.txt`)
+- One `key=value` per line.
+- `name` and `weapon` are strings. `bag` is a string joined with `|`. Everything else is an int.
+- `load_checkpoint` fills in `weapon`, `attack_bonus`, and `bag` if an old save is missing them. Keep that.
+
+## Menu
+1 Fight, 2 View hero, 3 Save, 4 Quit, 5 View loot bag.

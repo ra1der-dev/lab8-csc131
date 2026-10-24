@@ -1,0 +1,17 @@
+---
+description: Lab 8 CSC 131 hard rules for the For the Horde dungeon game
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+# Lab 8 rules (do not break these)
+
+- Only beginner Python: variables, if/elif/else, loops, lists, dictionaries, `random`, and text files.
+- No classes. No imports besides `random`.
+- Never rename or change the parameters of `roll_die`, `log_event`, `fight`, `save_checkpoint`, `load_checkpoint`, or `main`.
+- `fight(hero)` must still return `True` or `False`.
+- Keep `SAVE_FILE`, `LOG_FILE`, and `STARTING_HP` exactly as they are.
+- Menu options 1-4 stay exactly as they are. New features go in option 5 and up.
+- After every change, `python check_lab.py` must still show 21/21. If it drops, fix that before adding anything else.
+- Explain every line you add or change in plain language, so it can be read aloud to the guild.
+- Prefer small, testable steps over big rewrites.
