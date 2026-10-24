@@ -188,7 +188,11 @@ def view_bag(hero):
 def main():
     print("=== FOR THE HORDE ===")
     assign_loot()
-    choice = input("(N)ew game or (C)ontinue? ").lower()
+    choice = ""
+    while choice != "n" and choice != "c":
+        choice = input("(N)ew game or (C)ontinue? ").strip().lower()
+        if choice != "n" and choice != "c":
+            print("Type n or c.")
     if choice == "c":
         hero = load_checkpoint(SAVE_FILE)
         print("Welcome back,", hero["name"] + "!")
@@ -220,7 +224,11 @@ def main():
         if choice == "1":
             won = fight(hero)
             if won:
-                answer = input("Save your checkpoint? (y/n) ").lower()
+                answer = ""
+                while answer != "y" and answer != "n":
+                    answer = input("Save your checkpoint? (y/n) ").strip().lower()
+                    if answer != "y" and answer != "n":
+                        print("Type y or n.")
                 if answer == "y":
                     save_checkpoint(hero, SAVE_FILE)
                     print("Checkpoint saved.")
