@@ -332,6 +332,67 @@ def item_tier(item):
 
 
 # Phase 2: show the loot bag
+def print_bag_items(hero):
+    number = 1
+    for item in hero["bag"]:
+        tier = item_tier(item)
+        value = LOOT[tier]["value"]
+        print(str(number) + ")", "[" + tier + "]", item, "-", value, "gold")
+        number = number + 1
+
+
+def bag_choice(hero, prompt, show):
+    # Returns the bag index the player picked, or -1 if they back out.
+    if len(hero["bag"]) == 0:
+        print("The bag is empty.")
+        return -1
+    if show:
+        print_bag_items(hero)
+    pick = input(prompt).strip()
+    if pick == "0" or pick == "":
+        return -1
+    if pick.isdigit() == False:
+        print("That's not in the bag.")
+        return -1
+    index = int(pick) - 1
+    if index < 0 or index >= len(hero["bag"]):
+        print("That's not in the bag.")
+        return -1
+    return index
+
+
+def equip_from_bag(hero):
+    index = bag_choice(hero, "Equip which weapon? (0 to leave) ", False)
+    if index == -1:
+        return
+    item = hero["bag"][index]
+    tier = weapon_tier(item)
+    if tier == "":
+        print("That is not a weapon.")
+        return
+    old_weapon = ""
+    if "weapon" in hero:
+        old_weapon = hero["weapon"]
+    del hero["bag"][index]
+    hero["weapon"] = item
+    hero["attack_bonus"] = WEAPON_BONUS[tier]
+    if old_weapon != "":
+        hero["bag"].append(old_weapon)
+    print("You equip the", item + ".")
+
+
+def sell_from_bag(hero):
+    index = bag_choice(hero, "Sell which item? (0 to leave) ", True)
+    if index == -1:
+        return
+    item = hero["bag"][index]
+    tier = item_tier(item)
+    price = LOOT[tier]["value"]
+    del hero["bag"][index]
+    hero["gold"] = hero["gold"] + price
+    print("Sold", item, "for", price, "gold.")
+
+
 def view_bag(hero):
     print()
     print("--- " + hero["name"].upper() + "'S LOOT BAG ---")
@@ -343,8 +404,9 @@ def view_bag(hero):
         tier = item_tier(item)
         value = LOOT[tier]["value"]
         total = total + value
-        print("[" + tier + "]", item, "-", value, "gold")
+    print_bag_items(hero)
     print("Total bag value:", total, "gold")
+    equip_from_bag(hero)
 
 
 def shop(hero):
@@ -357,12 +419,13 @@ def shop(hero):
     buying = True
     while buying:
         print()
-        print("Gold:", hero["gold"])
+        print("Gold:", hero["gold"], "| HP:", str(hero["hp"]) + "/" + str(hero["max_hp"]))
         print("1) Healing potion -", POTION_COST, "gold (restores", POTION_HEAL, "HP)")
         print("2)", stock[0][0], "-", SHOP_PRICE[tier], "gold")
         print("3)", stock[1][0], "-", SHOP_PRICE[tier], "gold")
-        print("4) Leave")
-        pick = input("Buy: ").strip()
+        print("4) Sell an item from your bag")
+        print("5) Leave")
+        pick = input("Buy or sell: ").strip()
         if pick == "1":
             if hero["gold"] < POTION_COST:
                 print("Not enough gold.")
@@ -382,10 +445,13 @@ def shop(hero):
                 print("Not enough gold.")
             else:
                 hero["gold"] = hero["gold"] - price
-                hero["weapon"] = chosen[0]
-                hero["attack_bonus"] = chosen[1]
-                print("You equip the", hero["weapon"] + ".")
+                if "bag" not in hero:
+                    hero["bag"] = []
+                hero["bag"].append(chosen[0])
+                print("You buy the", chosen[0] + ". It is in your bag.")
         elif pick == "4":
+            sell_from_bag(hero)
+        elif pick == "5":
             buying = False
         else:
             print("That's not in the shop.")

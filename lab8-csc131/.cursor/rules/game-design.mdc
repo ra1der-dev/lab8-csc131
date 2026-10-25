@@ -38,8 +38,9 @@ The boss is the separate `BOSS` dictionary, not a member of `MONSTERS`. `fight` 
 
 ## Shop
 - Menu option 6. Options 1-4 stay as they are.
-- A potion costs 15 gold and restores 10 HP, capped at max HP.
-- Two weapons are rolled for the visit. Levels 1-2 are Poor and cost 20. Level 3 and up are Common and cost 50. Buying one equips it and sets `attack_bonus` to that weapon only.
+- A potion costs 15 gold and restores 10 HP, capped at max HP. It is drunk immediately.
+- Two weapons are rolled for the visit. Levels 1-2 are Poor and cost 20. Level 3 and up are Common and cost 50. Buying one puts it in the bag. It does not equip itself.
+- Shop option 4 sells one bag item for that item's quality gold value: Poor 1, Common 5, Uncommon 20, Rare 60, Epic 200. Option 5 leaves.
 
 ## Save file (`saves/checkpoint.txt`)
 - One `key=value` per line.
@@ -51,6 +52,6 @@ The boss is the separate `BOSS` dictionary, not a member of `MONSTERS`. `fight` 
 
 The menu prints three labels across, with four spaces between columns. Reading order is left to right.
 
-Continue with no `saves/checkpoint.txt` starts a new hero. Option 7 Rest heals 10 HP, and HP never goes above max HP. Option 8 prints `saves/battle_log.txt`. A fight prints one random room line before the taunt. Every fight then writes `saves/checkpoint.txt`. There is no y/n save question. Option 3 also writes `saves/<hero>.txt` (spaces removed from the name) and records that file in `saves/heroes.txt`. Option 9 loads one of those hero files.
+Continue with no `saves/checkpoint.txt` starts a new hero. Option 5 lists the bag. A number equips that item when it is a weapon, and the old weapon goes back into the bag. 0 leaves the bag. Option 7 Rest heals 10 HP, and HP never goes above max HP. Option 8 prints `saves/battle_log.txt`. A fight prints one random room line before the taunt. Every fight then writes `saves/checkpoint.txt`. There is no y/n save question. Option 3 also writes `saves/<hero>.txt` (spaces removed from the name) and records that file in `saves/heroes.txt`. Option 9 loads one of those hero files.
 
 A hit in the battle log reads `Name was hit by the Monster for N damage.` If that hit drops HP to 0 or below, the next log line is `Name collapsed and woke up back at camp.` HP is set back to max HP before the auto-save.
