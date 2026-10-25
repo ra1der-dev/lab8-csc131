@@ -14,6 +14,8 @@ WEAPON_BONUS = {"Poor": 0, "Common": 1, "Rare": 2, "Epic": 3}
 SHOP_PRICE = {"Poor": 20, "Common": 50}
 POTION_COST = 15
 POTION_HEAL = 10
+REST_HEAL = 10
+HERO_LIST = "saves/heroes.txt"
 
 MONSTERS = {
     "Goblin": {"taunt": "A Goblin leaps out, waving a rusty dagger!", "ac": 8, "damage": 4, "xp": 20},
@@ -68,6 +70,15 @@ LOOT = {
         "items": ["Gorehowl", "Sulfuras Shard", "Ashkandi", "Thunderfury Bindings", "Felstriker", "Quel'Serrar"],
     },
 }
+
+# One line printed before each monster appears.
+ROOMS = [
+    "You step into a torchlit tunnel.",
+    "The cave opens into a cold stone hall.",
+    "Roots hang over a muddy passage.",
+    "A brazier burns in an empty guard room.",
+    "Wind howls through a cracked gate.",
+]
 
 # Phase 2: random victory shouts
 VICTORY_MESSAGES = [
@@ -219,6 +230,7 @@ def fight(hero):
     else:
         name = random.choice(list(MONSTERS))
         monster = MONSTERS[name]
+    print(random.choice(ROOMS))
     print(monster["taunt"])
     roll = roll_die(20)
     # The checker fights a hero that has no weapon yet. A missing bonus adds 0.
@@ -357,6 +369,85 @@ def shop(hero):
             print("That's not in the shop.")
 
 
+def hero_save_path(name):
+    # Drop spaces so the file name is one word, such as saves/Thrall.txt.
+    cleaned = ""
+    for character in name:
+        if character != " ":
+            cleaned = cleaned + character
+    if cleaned == "":
+        cleaned = "hero"
+    return "saves/" + cleaned + ".txt"
+
+
+def remember_hero_file(filename):
+    # heroes.txt is the list option 9 reads. The lab allows no import besides random,
+    # so the game keeps its own list instead of scanning the folder.
+    try:
+        infile = open(HERO_LIST, "r")
+        for line in infile:
+            if line.rstrip("\n") == filename:
+                infile.close()
+                return
+        infile.close()
+    except FileNotFoundError:
+        pass
+    outfile = open(HERO_LIST, "a")
+    outfile.write(filename + "\n")
+    outfile.close()
+
+
+def print_battle_log():
+    try:
+        infile = open(LOG_FILE, "r")
+        text = infile.read()
+        infile.close()
+    except FileNotFoundError:
+        print("The battle log is empty.")
+        return
+    if text.strip() == "":
+        print("The battle log is empty.")
+        return
+    print(text, end="")
+
+
+def load_saved_hero(hero):
+    try:
+        infile = open(HERO_LIST, "r")
+        names = []
+        for line in infile:
+            filename = line.rstrip("\n")
+            if filename != "":
+                names.append(filename)
+        infile.close()
+    except FileNotFoundError:
+        print("No hero saves yet.")
+        return hero
+    if len(names) == 0:
+        print("No hero saves yet.")
+        return hero
+    number = 1
+    for filename in names:
+        print(str(number) + ")", filename)
+        number = number + 1
+    pick = input("Load which hero? ").strip()
+    if pick.isdigit() == False:
+        print("That's not a save.")
+        return hero
+    index = int(pick) - 1
+    if index < 0 or index >= len(names):
+        print("That's not a save.")
+        return hero
+    try:
+        loaded = load_checkpoint(names[index])
+    except FileNotFoundError:
+        print("That save file is missing.")
+        return hero
+    fill_hero(loaded)
+    print("Loaded", loaded["name"] + ".")
+    return loaded
+
+
 def fill_hero(hero):
     # Old saves have only name, hp, xp, and gold. Fill the rest here,
     # after load, so load_checkpoint itself stays an exact copy of the file.
@@ -385,11 +476,17 @@ def main():
         choice = input("(N)ew game or (C)ontinue? ").strip().lower()
         if choice != "n" and choice != "c":
             print("Type n or c.")
+    hero = None
     if choice == "c":
-        hero = load_checkpoint(SAVE_FILE)
-        fill_hero(hero)
-        print("Welcome back,", hero["name"] + "!")
-    else:
+        try:
+            hero = load_checkpoint(SAVE_FILE)
+        except FileNotFoundError:
+            print("No checkpoint found. Starting a new hero.")
+            hero = None
+        if hero is not None:
+            fill_hero(hero)
+            print("Welcome back,", hero["name"] + "!")
+    if hero is None:
         name = input("Name your hero (Enter for a random name): ")
         if name == "":
             name = random.choice(HERO_NAMES)
@@ -417,6 +514,9 @@ def main():
         print("4) Quit")
         print("5) View loot bag")
         print("6) Visit the shop")
+        print("7) Rest")
+        print("8) Read battle log")
+        print("9) Load a hero")
         choice = input("Choose an action: ")
 
         if choice == "1":
@@ -443,6 +543,9 @@ def main():
                   "| Items", len(hero["bag"]))
         elif choice == "3":
             save_checkpoint(hero, SAVE_FILE)
+            hero_file = hero_save_path(hero["name"])
+            save_checkpoint(hero, hero_file)
+            remember_hero_file(hero_file)
             print("Checkpoint saved.")
         elif choice == "4":
             print("Farewell,", hero["name"] + ". Lok'tar.")
@@ -451,6 +554,18 @@ def main():
             view_bag(hero)
         elif choice == "6":
             shop(hero)
+        elif choice == "7":
+            if hero["hp"] >= hero["max_hp"]:
+                print(hero["name"], "is already rested.")
+            else:
+                hero["hp"] = hero["hp"] + REST_HEAL
+                if hero["hp"] > hero["max_hp"]:
+                    hero["hp"] = hero["max_hp"]
+                print(hero["name"], "rests. HP is", str(hero["hp"]) + ".")
+        elif choice == "8":
+            print_battle_log()
+        elif choice == "9":
+            hero = load_saved_hero(hero)
         else:
             print("That's not an option.")
 
