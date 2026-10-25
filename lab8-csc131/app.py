@@ -3,6 +3,8 @@ import random
 SAVE_FILE = "saves/checkpoint.txt"
 LOG_FILE = "saves/battle_log.txt"
 STARTING_HP = 30
+# Damage from the last lost fight. 0 means the hero was not hit.
+LAST_BLOW = 0
 
 HERO_NAMES = ["Thrall", "Grom", "Durotan", "Draka", "Saurfang", "Varok", "Nazgrel", "Aggra"]
 WEAPON_TYPES = ["Club", "Sword", "Mace"]
@@ -218,8 +220,27 @@ def boss_weapon_drop(hero):
     log_event(hero["name"] + " took the named weapon " + item + " (" + tier + ").", LOG_FILE)
 
 
+def note_hit_damage(damage):
+    # fight() already wrote "Name was hit by the Monster."
+    # This adds the damage number onto the end of that same line.
+    try:
+        infile = open(LOG_FILE, "r")
+        text = infile.read()
+        infile.close()
+    except FileNotFoundError:
+        return
+    if text.endswith(".\n") == False:
+        return
+    text = text[:-2] + " for " + str(damage) + " damage.\n"
+    outfile = open(LOG_FILE, "w")
+    outfile.write(text)
+    outfile.close()
+
+
 # Step 3
 def fight(hero):
+    global LAST_BLOW
+    LAST_BLOW = 0
     # A new hero has wins 0, so the first fight is a normal monster.
     # The checker's hero has no wins key at all, so it never meets the boss.
     is_boss = False
@@ -266,6 +287,7 @@ def fight(hero):
         hero["hp"] = hero["hp"] - monster["damage"]
         print("The", name, "hits you for", monster["damage"], "damage!")
         log_event(hero["name"] + " was hit by the " + name + ".", LOG_FILE)
+        LAST_BLOW = monster["damage"]
         return False
 
 
@@ -467,6 +489,46 @@ def fill_hero(hero):
         hero["max_hp"] = STARTING_HP + (hero["level"] - 1) * 5
 
 
+def print_menu():
+    # Nine choices, three across. A short label gets spaces so the next
+    # column starts in the same place on every row.
+    options = [
+        "1) Fight a monster",
+        "2) View hero",
+        "3) Save checkpoint",
+        "4) Quit",
+        "5) View loot bag",
+        "6) Visit the shop",
+        "7) Rest",
+        "8) Read battle log",
+        "9) Load a hero",
+    ]
+    columns = 3
+    gap = "    "
+    widths = [0, 0, 0]
+    index = 0
+    for option in options:
+        column = index % columns
+        if len(option) > widths[column]:
+            widths[column] = len(option)
+        index = index + 1
+    index = 0
+    line = ""
+    for option in options:
+        column = index % columns
+        text = option
+        last_in_row = column == columns - 1 or index == len(options) - 1
+        if last_in_row == False:
+            while len(text) < widths[column]:
+                text = text + " "
+            line = line + text + gap
+        else:
+            line = line + text
+            print(line)
+            line = ""
+        index = index + 1
+
+
 # Step 6
 def main():
     print("=== FOR THE HORDE ===")
@@ -508,34 +570,22 @@ def main():
     playing = True
     while playing:
         print()
-        print("1) Fight a monster")
-        print("2) View hero")
-        print("3) Save checkpoint")
-        print("4) Quit")
-        print("5) View loot bag")
-        print("6) Visit the shop")
-        print("7) Rest")
-        print("8) Read battle log")
-        print("9) Load a hero")
+        print_menu()
         choice = input("Choose an action: ")
 
         if choice == "1":
-            won = fight(hero)
-            if won:
-                answer = ""
-                while answer != "y" and answer != "n":
-                    answer = input("Save your checkpoint? (y/n) ").strip().lower()
-                    if answer != "y" and answer != "n":
-                        print("Type y or n.")
-                if answer == "y":
-                    save_checkpoint(hero, SAVE_FILE)
-                    print("Checkpoint saved.")
+            fight(hero)
+            if LAST_BLOW > 0:
+                note_hit_damage(LAST_BLOW)
             if hero["hp"] <= 0:
                 print("You collapse... and wake up back at camp.")
                 if "max_hp" in hero:
                     hero["hp"] = hero["max_hp"]
                 else:
                     hero["hp"] = STARTING_HP
+                log_event(hero["name"] + " collapsed and woke up back at camp.", LOG_FILE)
+            save_checkpoint(hero, SAVE_FILE)
+            print("Checkpoint saved.")
         elif choice == "2":
             print(hero["name"], "| Level", hero["level"], "| HP", str(hero["hp"]) + "/" + str(hero["max_hp"]),
                   "| XP", hero["xp"], "| Gold", hero["gold"],

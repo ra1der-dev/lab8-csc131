@@ -49,4 +49,8 @@ The boss is the separate `BOSS` dictionary, not a member of `MONSTERS`. `fight` 
 ## Menu
 1 Fight, 2 View hero, 3 Save, 4 Quit, 5 View loot bag, 6 Visit the shop, 7 Rest, 8 Read battle log, 9 Load a hero.
 
-Continue with no `saves/checkpoint.txt` starts a new hero. Option 7 Rest heals 10 HP, and HP never goes above max HP. Option 8 prints `saves/battle_log.txt`. A fight prints one random room line before the taunt. Option 3 also writes `saves/<hero>.txt` (spaces removed from the name) and records that file in `saves/heroes.txt`. Option 9 loads one of those hero files.
+The menu prints three labels across, with four spaces between columns. Reading order is left to right.
+
+Continue with no `saves/checkpoint.txt` starts a new hero. Option 7 Rest heals 10 HP, and HP never goes above max HP. Option 8 prints `saves/battle_log.txt`. A fight prints one random room line before the taunt. Every fight then writes `saves/checkpoint.txt`. There is no y/n save question. Option 3 also writes `saves/<hero>.txt` (spaces removed from the name) and records that file in `saves/heroes.txt`. Option 9 loads one of those hero files.
+
+A hit in the battle log reads `Name was hit by the Monster for N damage.` If that hit drops HP to 0 or below, the next log line is `Name collapsed and woke up back at camp.` HP is set back to max HP before the auto-save.
