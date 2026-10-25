@@ -8,13 +8,16 @@ alwaysApply: false
 
 ## Hero
 - Theme: World of Warcraft, Horde side. Title prints `=== FOR THE HORDE ===`.
-- Default hero is Thrall (press Enter at the name prompt).
-- Starts with HP 30, XP 0, Gold 0, weapon Doomhammer, attack_bonus 2.
-- `attack_bonus` is added to the d20 roll in `fight()`.
-- The armory/shop was removed on purpose. Weapons do not change during play.
+- A typed name is kept. Enter at the name prompt picks one name from `HERO_NAMES`.
+- Starts with HP 30, XP 0, Gold 0, wins 0, level 1. The weapon is a random Poor (+0) or Common (+1) Club, Sword, or Mace. Poor is a d100 of 1-60. Common is 61-100.
+- `attack_bonus` is the equipped weapon. `fight()` also adds `(level - 1) // 2`.
+- Level comes from total XP and does not spend XP. Totals: level 2 at 50, then 100, 200, 400, and so on. Each level above 1 adds 5 max HP.
+- Named Rare (+2) and Epic (+3) weapons are boss drops only. Doomhammer is Epic.
 
 ## Monsters (`MONSTERS`)
 Each has `taunt`, `ac`, `damage`, and `xp`. Loot is stored in `ASSIGNED_LOOT`, not on the monster.
+The boss is the separate `BOSS` dictionary, not a member of `MONSTERS`. `fight` picks the boss when `wins` is a positive multiple of 3.
+
 | Monster | AC | Damage | XP |
 |---|---|---|---|
 | Goblin | 8 | 4 | 20 |
@@ -24,19 +27,24 @@ Each has `taunt`, `ac`, `damage`, and `xp`. Loot is stored in `ASSIGNED_LOOT`, n
 | Human Footman | 9 | 4 | 25 |
 | Night Elf Sentinel | 11 | 5 | 35 |
 | Dwarf Mountaineer | 12 | 6 | 45 |
+| Warchief of the Alliance (boss) | 16 | 8 | 80 |
 
 ## Loot (`LOOT`, `assign_loot`, `roll_loot`)
 - Tiers follow WoW item quality: Poor, Common, Uncommon, Rare, Epic.
-- `assign_loot()` runs once in `main()`. It stores each monster's items in `ASSIGNED_LOOT`, not on the monster. Goblin, Skeleton, Orc, and Mimic keep only `taunt`, `ac`, `damage`, and `xp`.
-- `roll_loot()` runs after a win. Roll = d100 + (monster AC - 8). Highest tier whose `min_roll` is met wins. Under 31 drops nothing.
+- `assign_loot()` runs once in `main()`. It stores each monster's Uncommon gear in `ASSIGNED_LOOT`.
+- `roll_loot()` runs after a normal win. Roll = d100 + (monster AC - 8). Under 31 drops nothing. Poor and Common drop a generated weapon. Uncommon drops the assigned gear. A Rare or Epic roll on a normal monster drops Uncommon gear instead.
+- A boss kill rolls one more d100: 1-70 nothing, 71-90 a Rare named weapon, 91-100 an Epic named weapon. The weapon goes in the bag.
 - min_roll / gold value: Poor 31/1, Common 61/5, Uncommon 81/20, Rare 94/60, Epic 100/200.
-- Measured rates: Goblin about 30% nothing, 1% Epic. Orc about 25% nothing, 6% Epic.
-- To tune difficulty, only change the five `min_roll` numbers.
+
+## Shop
+- Menu option 6. Options 1-4 stay as they are.
+- A potion costs 15 gold and restores 10 HP, capped at max HP.
+- Two weapons are rolled for the visit. Levels 1-2 are Poor and cost 20. Level 3 and up are Common and cost 50. Buying one equips it and sets `attack_bonus` to that weapon only.
 
 ## Save file (`saves/checkpoint.txt`)
 - One `key=value` per line.
 - `name` and `weapon` are strings. `bag` is a string joined with `|`. Everything else is an int.
-- `load_checkpoint` returns only the keys in the file. After Continue, `main` fills `weapon`, `attack_bonus`, and `bag` when an old save is missing them.
+- `load_checkpoint` returns only the keys in the file. After Continue, `fill_hero` fills weapon, attack bonus, bag, wins, level, and max HP when an old save is missing them.
 
 ## Menu
-1 Fight, 2 View hero, 3 Save, 4 Quit, 5 View loot bag.
+1 Fight, 2 View hero, 3 Save, 4 Quit, 5 View loot bag, 6 Visit the shop.

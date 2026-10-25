@@ -12,6 +12,6 @@ alwaysApply: true
 - `fight(hero)` must still return `True` or `False`.
 - Keep `SAVE_FILE`, `LOG_FILE`, and `STARTING_HP` exactly as they are.
 - Menu options 1-4 stay exactly as they are. New features go in option 5 and up.
-- After every change, `python check_lab.py` must still show 21/21. If it drops, fix that before adding anything else.
+- After a full change, run `python check_lab-2.py` in this folder. It grades `app.py` and must show 21/21. If it drops, fix that before adding anything else. Do not commit the checker.
 - Explain every line you add or change in plain language, so it can be read aloud to the guild.
 - Prefer small, testable steps over big rewrites.

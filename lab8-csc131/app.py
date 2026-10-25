@@ -3,9 +3,17 @@ import random
 SAVE_FILE = "saves/checkpoint.txt"
 LOG_FILE = "saves/battle_log.txt"
 STARTING_HP = 30
-DEFAULT_HERO = "Thrall"
-STARTING_WEAPON = "Doomhammer"
-STARTING_BONUS = 2
+
+HERO_NAMES = ["Thrall", "Grom", "Durotan", "Draka", "Saurfang", "Varok", "Nazgrel", "Aggra"]
+WEAPON_TYPES = ["Club", "Sword", "Mace"]
+POOR_PREFIX = ["Bent", "Rusty", "Cracked"]
+COMMON_PREFIX = ["Iron", "Steel", "Bronze"]
+RARE_WEAPONS = ["Blade of the Titans", "Ironfoe", "Shadowfang"]
+EPIC_WEAPONS = ["Doomhammer", "Gorehowl", "Sulfuras"]
+WEAPON_BONUS = {"Poor": 0, "Common": 1, "Rare": 2, "Epic": 3}
+SHOP_PRICE = {"Poor": 20, "Common": 50}
+POTION_COST = 15
+POTION_HEAL = 10
 
 MONSTERS = {
     "Goblin": {"taunt": "A Goblin leaps out, waving a rusty dagger!", "ac": 8, "damage": 4, "xp": 20},
@@ -17,6 +25,17 @@ MONSTERS = {
     "Human Footman": {"taunt": "A Human Footman raises his shield. 'For Stormwind!'", "ac": 9, "damage": 4, "xp": 25},
     "Night Elf Sentinel": {"taunt": "A Night Elf Sentinel drops from the trees, glaive spinning!", "ac": 11, "damage": 5, "xp": 35},
     "Dwarf Mountaineer": {"taunt": "A Dwarf Mountaineer levels his rifle. 'Hold yer ground, orc!'", "ac": 12, "damage": 6, "xp": 45},
+}
+
+# The boss is not in MONSTERS. The lab checker compares those dictionaries
+# to the starter monsters, and it also checks that extra monsters use only
+# taunt, ac, damage, and xp.
+BOSS = {
+    "name": "Warchief of the Alliance",
+    "taunt": "The Warchief of the Alliance raises a greatsword. 'Your Horde ends here!'",
+    "ac": 16,
+    "damage": 8,
+    "xp": 80,
 }
 
 # Phase 2: loot tiers, ordered worst to best, like WoW's gray/white/green/blue/purple.
@@ -76,6 +95,65 @@ def log_event(message, filename):
 ASSIGNED_LOOT = {}
 
 
+def random_weapon(tier):
+    # Poor and Common are a random Club, Sword, or Mace with a prefix.
+    # Rare and Epic are the named weapons, used only for a boss drop.
+    if tier == "Poor":
+        name = random.choice(POOR_PREFIX) + " " + random.choice(WEAPON_TYPES)
+    elif tier == "Common":
+        name = random.choice(COMMON_PREFIX) + " " + random.choice(WEAPON_TYPES)
+    elif tier == "Rare":
+        name = random.choice(RARE_WEAPONS)
+    else:
+        name = random.choice(EPIC_WEAPONS)
+    return name, WEAPON_BONUS[tier]
+
+
+def starting_weapon():
+    # Same idea as the loot table: 1-60 is Poor, 61-100 is Common.
+    roll = roll_die(100)
+    if roll <= 60:
+        return random_weapon("Poor")
+    return random_weapon("Common")
+
+
+def weapon_tier(item):
+    if item in RARE_WEAPONS:
+        return "Rare"
+    if item in EPIC_WEAPONS:
+        return "Epic"
+    parts = item.split(" ")
+    if len(parts) == 2 and parts[1] in WEAPON_TYPES:
+        if parts[0] in POOR_PREFIX:
+            return "Poor"
+        if parts[0] in COMMON_PREFIX:
+            return "Common"
+    return ""
+
+
+def level_from_xp(xp):
+    # Level 2 costs 50 total XP. Each later level doubles that total.
+    level = 1
+    need = 50
+    while xp >= need:
+        level = level + 1
+        need = need * 2
+    return level
+
+
+def apply_level(hero):
+    # XP itself is never spent. The checker still sees xp=25 after one win.
+    new_level = level_from_xp(hero["xp"])
+    old_level = hero["level"]
+    hero["level"] = new_level
+    hero["max_hp"] = STARTING_HP + (new_level - 1) * 5
+    if new_level > old_level:
+        hero["hp"] = hero["hp"] + (new_level - old_level) * 5
+        if hero["hp"] > hero["max_hp"]:
+            hero["hp"] = hero["max_hp"]
+        print("Level", str(new_level) + "! Max HP is now", str(hero["max_hp"]) + ".")
+
+
 # Phase 2: give every monster its own random loot table.
 # Each monster gets one random item from each tier, so two Goblins in two
 # different play sessions can carry different loot.
@@ -100,22 +178,55 @@ def roll_loot(hero, monster_name):
     if dropped is None:
         print("The", monster_name, "had nothing worth taking.")
         return
-    item = ASSIGNED_LOOT[monster_name][dropped]
+    # Named Rare and Epic weapons come from the boss only.
+    # A normal monster that rolls that high drops Uncommon gear instead.
+    if dropped == "Rare" or dropped == "Epic":
+        dropped = "Uncommon"
+    if dropped == "Poor" or dropped == "Common":
+        item, bonus = random_weapon(dropped)
+    else:
+        item = ASSIGNED_LOOT[monster_name][dropped]
     hero["bag"].append(item)
     print("Loot! [" + dropped + "]", item, "(worth", LOOT[dropped]["value"], "gold)")
     log_event(hero["name"] + " looted " + item + " (" + dropped + ") from the " + monster_name + ".", LOG_FILE)
 
 
+def boss_weapon_drop(hero):
+    # One extra d100, and only after a boss kill. 71-90 is Rare, 91-100 is Epic.
+    roll = roll_die(100)
+    if roll <= 70:
+        print("The Warchief carried no named weapon.")
+        return
+    if roll <= 90:
+        tier = "Rare"
+    else:
+        tier = "Epic"
+    item, bonus = random_weapon(tier)
+    hero["bag"].append(item)
+    print("Named weapon! [" + tier + "]", item)
+    log_event(hero["name"] + " took the named weapon " + item + " (" + tier + ").", LOG_FILE)
+
+
 # Step 3
 def fight(hero):
-    name = random.choice(list(MONSTERS))
-    monster = MONSTERS[name]
+    # A new hero has wins 0, so the first fight is a normal monster.
+    # The checker's hero has no wins key at all, so it never meets the boss.
+    is_boss = False
+    if "wins" in hero and hero["wins"] > 0 and hero["wins"] % 3 == 0:
+        is_boss = True
+        name = BOSS["name"]
+        monster = BOSS
+    else:
+        name = random.choice(list(MONSTERS))
+        monster = MONSTERS[name]
     print(monster["taunt"])
     roll = roll_die(20)
     # The checker fights a hero that has no weapon yet. A missing bonus adds 0.
     bonus = 0
     if "attack_bonus" in hero:
         bonus = hero["attack_bonus"]
+    if "level" in hero:
+        bonus = bonus + (hero["level"] - 1) // 2
     total = roll + bonus
     if "weapon" in hero:
         print("You rolled", roll, "+", bonus, "(" + hero["weapon"] + ") =", total, "against AC", monster["ac"])
@@ -130,8 +241,14 @@ def fight(hero):
         log_event(hero["name"] + " defeated the " + name + ".", LOG_FILE)
         # Skip loot when this monster has no table, or the hero has no bag.
         # That keeps the checker's fight to one d20 and one d10.
-        if name in ASSIGNED_LOOT and "bag" in hero:
+        if is_boss and "bag" in hero:
+            boss_weapon_drop(hero)
+        elif name in ASSIGNED_LOOT and "bag" in hero:
             roll_loot(hero, name)
+        if "wins" in hero:
+            hero["wins"] = hero["wins"] + 1
+        if "level" in hero:
+            apply_level(hero)
         return True
     else:
         hero["hp"] = hero["hp"] - monster["damage"]
@@ -171,6 +288,9 @@ def load_checkpoint(filename):
 
 # Phase 2: look up which tier an item belongs to
 def item_tier(item):
+    found = weapon_tier(item)
+    if found != "":
+        return found
     for tier in LOOT:
         if item in LOOT[tier]["items"]:
             return tier
@@ -193,6 +313,69 @@ def view_bag(hero):
     print("Total bag value:", total, "gold")
 
 
+def shop(hero):
+    # Levels 1 and 2 see Poor weapons. Level 3 and up see Common weapons.
+    if hero["level"] >= 3:
+        tier = "Common"
+    else:
+        tier = "Poor"
+    stock = [random_weapon(tier), random_weapon(tier)]
+    buying = True
+    while buying:
+        print()
+        print("Gold:", hero["gold"])
+        print("1) Healing potion -", POTION_COST, "gold (restores", POTION_HEAL, "HP)")
+        print("2)", stock[0][0], "-", SHOP_PRICE[tier], "gold")
+        print("3)", stock[1][0], "-", SHOP_PRICE[tier], "gold")
+        print("4) Leave")
+        pick = input("Buy: ").strip()
+        if pick == "1":
+            if hero["gold"] < POTION_COST:
+                print("Not enough gold.")
+            else:
+                hero["gold"] = hero["gold"] - POTION_COST
+                hero["hp"] = hero["hp"] + POTION_HEAL
+                if hero["hp"] > hero["max_hp"]:
+                    hero["hp"] = hero["max_hp"]
+                print("You drink the potion. HP is", str(hero["hp"]) + ".")
+        elif pick == "2" or pick == "3":
+            if pick == "2":
+                chosen = stock[0]
+            else:
+                chosen = stock[1]
+            price = SHOP_PRICE[tier]
+            if hero["gold"] < price:
+                print("Not enough gold.")
+            else:
+                hero["gold"] = hero["gold"] - price
+                hero["weapon"] = chosen[0]
+                hero["attack_bonus"] = chosen[1]
+                print("You equip the", hero["weapon"] + ".")
+        elif pick == "4":
+            buying = False
+        else:
+            print("That's not in the shop.")
+
+
+def fill_hero(hero):
+    # Old saves have only name, hp, xp, and gold. Fill the rest here,
+    # after load, so load_checkpoint itself stays an exact copy of the file.
+    if "weapon" not in hero:
+        weapon_name, weapon_bonus = random_weapon("Poor")
+        hero["weapon"] = weapon_name
+        hero["attack_bonus"] = weapon_bonus
+    if "attack_bonus" not in hero:
+        hero["attack_bonus"] = 0
+    if "bag" not in hero:
+        hero["bag"] = []
+    if "wins" not in hero:
+        hero["wins"] = 0
+    if "level" not in hero:
+        hero["level"] = level_from_xp(hero["xp"])
+    if "max_hp" not in hero:
+        hero["max_hp"] = STARTING_HP + (hero["level"] - 1) * 5
+
+
 # Step 6
 def main():
     print("=== FOR THE HORDE ===")
@@ -204,29 +387,26 @@ def main():
             print("Type n or c.")
     if choice == "c":
         hero = load_checkpoint(SAVE_FILE)
-        # Old saves have only name, hp, xp, and gold. Fill the rest here,
-        # after load, so load_checkpoint itself stays an exact copy of the file.
-        if "weapon" not in hero:
-            hero["weapon"] = STARTING_WEAPON
-        if "attack_bonus" not in hero:
-            hero["attack_bonus"] = STARTING_BONUS
-        if "bag" not in hero:
-            hero["bag"] = []
+        fill_hero(hero)
         print("Welcome back,", hero["name"] + "!")
     else:
-        name = input("Name your hero (Enter for " + DEFAULT_HERO + "): ")
+        name = input("Name your hero (Enter for a random name): ")
         if name == "":
-            name = DEFAULT_HERO
+            name = random.choice(HERO_NAMES)
+        weapon_name, weapon_bonus = starting_weapon()
         hero = {
             "name": name,
             "hp": STARTING_HP,
             "xp": 0,
             "gold": 0,
-            "weapon": STARTING_WEAPON,
-            "attack_bonus": STARTING_BONUS,
+            "weapon": weapon_name,
+            "attack_bonus": weapon_bonus,
             "bag": [],
+            "wins": 0,
+            "level": 1,
+            "max_hp": STARTING_HP,
         }
-        print(name, "grips the", STARTING_WEAPON + ". The Horde awaits.")
+        print(name, "grips the", weapon_name + ".")
 
     playing = True
     while playing:
@@ -236,6 +416,7 @@ def main():
         print("3) Save checkpoint")
         print("4) Quit")
         print("5) View loot bag")
+        print("6) Visit the shop")
         choice = input("Choose an action: ")
 
         if choice == "1":
@@ -251,9 +432,13 @@ def main():
                     print("Checkpoint saved.")
             if hero["hp"] <= 0:
                 print("You collapse... and wake up back at camp.")
-                hero["hp"] = STARTING_HP
+                if "max_hp" in hero:
+                    hero["hp"] = hero["max_hp"]
+                else:
+                    hero["hp"] = STARTING_HP
         elif choice == "2":
-            print(hero["name"], "| HP", hero["hp"], "| XP", hero["xp"], "| Gold", hero["gold"],
+            print(hero["name"], "| Level", hero["level"], "| HP", str(hero["hp"]) + "/" + str(hero["max_hp"]),
+                  "| XP", hero["xp"], "| Gold", hero["gold"],
                   "| Weapon", hero["weapon"], "(+" + str(hero["attack_bonus"]) + ")",
                   "| Items", len(hero["bag"]))
         elif choice == "3":
@@ -264,6 +449,8 @@ def main():
             playing = False
         elif choice == "5":
             view_bag(hero)
+        elif choice == "6":
+            shop(hero)
         else:
             print("That's not an option.")
 
