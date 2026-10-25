@@ -207,6 +207,56 @@ def boss_weapon_drop(hero):
     log_event(hero["name"] + " took the named weapon " + item + " (" + tier + ").", LOG_FILE)
 
 
+# Three pictures of one fight. Each figure is three lines, four characters wide,
+# so a new frame can sit on top of the old one.
+HERO_STAND = [" O  ", "/|\\ ", "/ \\ "]
+HERO_SWING = [" O  ", "/|>-", "/ \\ "]
+HERO_MISS = [" O  ", "/|\\ ", " >\\ "]
+MONSTER_ART = {
+    "Goblin": [" g  ", "/|\\ ", "/ \\ "],
+    "Skeleton": [" S  ", "/|\\ ", "/ \\ "],
+    "Orc": [" @  ", "/|\\ ", "/ \\ "],
+    "Mimic": ["[__]", "|''|", "|__|"],
+    "Human Footman": [" H  ", "/|\\ ", "/ \\ "],
+    "Night Elf Sentinel": [" E  ", "/|\\ ", "/ \\ "],
+    "Dwarf Mountaineer": [" D  ", "/|\\ ", "/ \\ "],
+    "Warchief of the Alliance": [" W  ", "/|\\ ", "/|\\ "],
+}
+UNKNOWN_ART = [" ?? ", "(  )", " ~~ "]
+
+
+def hold_frame():
+    # The lab allows only import random, so this counted loop is the pause.
+    count = 0
+    while count < 900000:
+        count = count + 1
+
+
+def monster_figure(name):
+    if name in MONSTER_ART:
+        return MONSTER_ART[name]
+    return UNKNOWN_ART
+
+
+def show_fight(monster_name, hit):
+    foe = monster_figure(monster_name)
+    stand = [HERO_STAND[0] + "    " + foe[0], HERO_STAND[1] + "    " + foe[1], HERO_STAND[2] + "    " + foe[2]]
+    swing = [HERO_SWING[0] + "    " + foe[0], HERO_SWING[1] + "    " + foe[1], HERO_SWING[2] + "    " + foe[2]]
+    if hit:
+        tipped = [foe[0], foe[1], " /  "]
+        last = [HERO_STAND[0] + "    " + tipped[0], HERO_STAND[1] + "    " + tipped[1], HERO_STAND[2] + "    " + tipped[2]]
+    else:
+        last = [HERO_MISS[0] + "    " + foe[0], HERO_MISS[1] + "    " + foe[1], HERO_MISS[2] + "    " + foe[2]]
+    frames = [stand, swing, last]
+    for frame in frames:
+        # Home the cursor so this frame replaces the one before it.
+        print("\033[H", end="")
+        for line in frame:
+            print(line)
+        print("")
+        hold_frame()
+
+
 # Step 3
 def fight(hero):
     # A new hero has wins 0, so the first fight is a normal monster.
@@ -219,7 +269,6 @@ def fight(hero):
     else:
         name = random.choice(list(MONSTERS))
         monster = MONSTERS[name]
-    print(monster["taunt"])
     roll = roll_die(20)
     # The checker fights a hero that has no weapon yet. A missing bonus adds 0.
     bonus = 0
@@ -228,6 +277,11 @@ def fight(hero):
     if "level" in hero:
         bonus = bonus + (hero["level"] - 1) // 2
     total = roll + bonus
+    # The scene plays only for a hero who already has a weapon.
+    # The checker's hero has none, so that fight does not pause.
+    if "weapon" in hero:
+        show_fight(name, total >= monster["ac"])
+    print(monster["taunt"])
     if "weapon" in hero:
         print("You rolled", roll, "+", bonus, "(" + hero["weapon"] + ") =", total, "against AC", monster["ac"])
     else:
