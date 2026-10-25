@@ -14,7 +14,7 @@ alwaysApply: false
 - The armory/shop was removed on purpose. Weapons do not change during play.
 
 ## Monsters (`MONSTERS`)
-Each has `taunt`, `ac`, `damage`, `xp`. A `loot` dict is added at startup.
+Each has `taunt`, `ac`, `damage`, and `xp`. Loot is stored in `ASSIGNED_LOOT`, not on the monster.
 | Monster | AC | Damage | XP |
 |---|---|---|---|
 | Goblin | 8 | 4 | 20 |
@@ -27,7 +27,7 @@ Each has `taunt`, `ac`, `damage`, `xp`. A `loot` dict is added at startup.
 
 ## Loot (`LOOT`, `assign_loot`, `roll_loot`)
 - Tiers follow WoW item quality: Poor, Common, Uncommon, Rare, Epic.
-- `assign_loot()` runs once in `main()`. It gives every monster one random item per tier.
+- `assign_loot()` runs once in `main()`. It stores each monster's items in `ASSIGNED_LOOT`, not on the monster. Goblin, Skeleton, Orc, and Mimic keep only `taunt`, `ac`, `damage`, and `xp`.
 - `roll_loot()` runs after a win. Roll = d100 + (monster AC - 8). Highest tier whose `min_roll` is met wins. Under 31 drops nothing.
 - min_roll / gold value: Poor 31/1, Common 61/5, Uncommon 81/20, Rare 94/60, Epic 100/200.
 - Measured rates: Goblin about 30% nothing, 1% Epic. Orc about 25% nothing, 6% Epic.
@@ -36,7 +36,7 @@ Each has `taunt`, `ac`, `damage`, `xp`. A `loot` dict is added at startup.
 ## Save file (`saves/checkpoint.txt`)
 - One `key=value` per line.
 - `name` and `weapon` are strings. `bag` is a string joined with `|`. Everything else is an int.
-- `load_checkpoint` fills in `weapon`, `attack_bonus`, and `bag` if an old save is missing them. Keep that.
+- `load_checkpoint` returns only the keys in the file. After Continue, `main` fills `weapon`, `attack_bonus`, and `bag` when an old save is missing them.
 
 ## Menu
 1 Fight, 2 View hero, 3 Save, 4 Quit, 5 View loot bag.

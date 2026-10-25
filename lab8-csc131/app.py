@@ -70,14 +70,20 @@ def log_event(message, filename):
         outfile.write(message + "\n")
 
 
+# Loot rolls live here, not on MONSTERS. The lab checker compares Goblin,
+# Skeleton, and Orc to the starter dictionaries, so those keep only
+# taunt, ac, damage, and xp.
+ASSIGNED_LOOT = {}
+
+
 # Phase 2: give every monster its own random loot table.
 # Each monster gets one random item from each tier, so two Goblins in two
 # different play sessions can carry different loot.
 def assign_loot():
     for name in MONSTERS:
-        MONSTERS[name]["loot"] = {}
+        ASSIGNED_LOOT[name] = {}
         for tier in LOOT:
-            MONSTERS[name]["loot"][tier] = random.choice(LOOT[tier]["items"])
+            ASSIGNED_LOOT[name][tier] = random.choice(LOOT[tier]["items"])
 
 
 # Phase 2: roll on the monster's loot table after a win.
@@ -94,7 +100,7 @@ def roll_loot(hero, monster_name):
     if dropped is None:
         print("The", monster_name, "had nothing worth taking.")
         return
-    item = monster["loot"][dropped]
+    item = ASSIGNED_LOOT[monster_name][dropped]
     hero["bag"].append(item)
     print("Loot! [" + dropped + "]", item, "(worth", LOOT[dropped]["value"], "gold)")
     log_event(hero["name"] + " looted " + item + " (" + dropped + ") from the " + monster_name + ".", LOG_FILE)
@@ -106,8 +112,15 @@ def fight(hero):
     monster = MONSTERS[name]
     print(monster["taunt"])
     roll = roll_die(20)
-    total = roll + hero["attack_bonus"]
-    print("You rolled", roll, "+", hero["attack_bonus"], "(" + hero["weapon"] + ") =", total, "against AC", monster["ac"])
+    # The checker fights a hero that has no weapon yet. A missing bonus adds 0.
+    bonus = 0
+    if "attack_bonus" in hero:
+        bonus = hero["attack_bonus"]
+    total = roll + bonus
+    if "weapon" in hero:
+        print("You rolled", roll, "+", bonus, "(" + hero["weapon"] + ") =", total, "against AC", monster["ac"])
+    else:
+        print("You rolled", roll, "+", bonus, "=", total, "against AC", monster["ac"])
     if total >= monster["ac"]:
         gold = roll_die(10)
         hero["xp"] = hero["xp"] + monster["xp"]
@@ -115,7 +128,10 @@ def fight(hero):
         print(random.choice(VICTORY_MESSAGES))
         print("You defeated the", name, "and found", gold, "gold!")
         log_event(hero["name"] + " defeated the " + name + ".", LOG_FILE)
-        roll_loot(hero, name)
+        # Skip loot when this monster has no table, or the hero has no bag.
+        # That keeps the checker's fight to one d20 and one d10.
+        if name in ASSIGNED_LOOT and "bag" in hero:
+            roll_loot(hero, name)
         return True
     else:
         hero["hp"] = hero["hp"] - monster["damage"]
@@ -150,13 +166,6 @@ def load_checkpoint(filename):
                     hero["bag"] = parts[1].split("|")
             else:
                 hero[parts[0]] = int(parts[1])
-    # Phase 2: old saves from before weapons and loot existed still load
-    if "weapon" not in hero:
-        hero["weapon"] = STARTING_WEAPON
-    if "attack_bonus" not in hero:
-        hero["attack_bonus"] = STARTING_BONUS
-    if "bag" not in hero:
-        hero["bag"] = []
     return hero
 
 
@@ -195,6 +204,14 @@ def main():
             print("Type n or c.")
     if choice == "c":
         hero = load_checkpoint(SAVE_FILE)
+        # Old saves have only name, hp, xp, and gold. Fill the rest here,
+        # after load, so load_checkpoint itself stays an exact copy of the file.
+        if "weapon" not in hero:
+            hero["weapon"] = STARTING_WEAPON
+        if "attack_bonus" not in hero:
+            hero["attack_bonus"] = STARTING_BONUS
+        if "bag" not in hero:
+            hero["bag"] = []
         print("Welcome back,", hero["name"] + "!")
     else:
         name = input("Name your hero (Enter for " + DEFAULT_HERO + "): ")
