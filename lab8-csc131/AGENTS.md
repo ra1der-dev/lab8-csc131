@@ -12,8 +12,9 @@ Rules and design live in `.cursor/rules/`:
 - `no-ascii-on-main.mdc` - ASCII fight pictures stay on `ascii-fight` only. Always apply.
 
 How to test:
-1. After a full change, run `python check_lab-2.py` in this folder. It grades `app.py` and must show 21/21.
-2. Play: (N)ew game, fight a few times. The menu is three columns. One room line prints before the taunt. A fight saves on its own. 5 to view loot, 7 to rest, 8 to read the battle log, 3 to save, 9 to load a saved hero, 4 to quit.
+1. After a full change, run `python3 check_lab-2.py` in this folder. It grades `app.py` and must show 21/21.
+2. Play: game loads with the Dungeons & Deadlines banner, then (N)ew/(C)ontinue. Fight a few times (Attack/Flee). The menu is three columns. One room line prints before a random taunt. A fight saves on its own. 5 to equip loot, 6 for potions/shop gear/sell, 7 to rest, 8 to read the battle log, 3 to save, 9 to load a saved hero, 4 to quit.
 3. Run again, choose (C)ontinue, check that HP, XP, gold, weapon, and loot bag came back. Continue with no `saves/checkpoint.txt` starts a new hero. A lost fight that drops HP to 0 writes the damage and the collapse into the battle log, then restores max HP.
+4. Optional local stress: `python3 stress_test.py` (gitignored, like the checker).
 
-`check_lab-2.py` stays on this machine. Do not commit it to GitHub.
+`check_lab-2.py` and `stress_test.py` stay on this machine. Do not commit them to GitHub.
