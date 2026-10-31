@@ -1,3 +1,5 @@
+#Guild: Loot Before Logic (Jay Martin (Tank), Brandon Pelaske (Healbot), Christian Warwick (Portal Monkey)  
+
 import random
 
 SAVE_FILE = "saves/checkpoint.txt"
